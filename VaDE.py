@@ -170,9 +170,13 @@ class EpochBegin(Callback):
 
 class PreTrainCallback(Callback):
     def on_epoch_begin(self, epoch, logs):
-        Y_pred = ae.predict(X, batch_size=batch_size)
-        acc, _ = cluster_acc(np.argmax(Y_pred, axis=1), Y)
-        print('acc_p_c_z: {:.8f}'.format(acc))
+        # Copied from commented code in epochBegin
+        sample = sample_output.predict(X,batch_size=batch_size)
+        g = mixture.GMM(n_components=n_centroid,covariance_type='diag')
+        g.fit(sample)
+        p = g.predict(sample)
+        acc_g, _ = cluster_acc(p,Y)
+        print('acc_g: {}'.format(acc_g))
 
 
 parser = argparse.ArgumentParser(description='VaDE training / pre-training')
@@ -267,13 +271,15 @@ else:   # pre-train
     x_decoded_mean = Dense(original_dim, activation=datatype)(h_decoded)
 
     ae = Model(x, x_decoded_mean)
+    sample_output = Model(x, z)    # Only for PreTrainCallback (optional)
     adam_nn = Adam(lr=lr_nn,epsilon=1e-4)
     # TODO: what loss function to use?
+    # (Currently, both cifar-10 and fashion-mnist use mean_squared_error)
     ae.compile(optimizer=adam_nn, 
                loss=objectives.binary_crossentropy \
                    if datatype == 'sigmoid' \
                    else objectives.mean_squared_error) 
-
+    
     ae.fit(X, X,
             shuffle=True,
             nb_epoch=epoch,
