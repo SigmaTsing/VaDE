@@ -10,6 +10,8 @@ Reuters_all: 79.38% +
 
 @code author: Zhuxi Jiang
 '''
+
+import argparse
 import numpy as np
 from keras.callbacks import Callback
 from keras.optimizers import Adam
@@ -27,76 +29,12 @@ import math
 from sklearn import mixture
 from sklearn.cluster import KMeans
 from keras.models import model_from_json
-
+import os
+from utils import *
 import warnings
 warnings.filterwarnings("ignore")
-
-def floatX(X):
-    return np.asarray(X, dtype=theano.config.floatX)
-    
-def sampling(args):
-    z_mean, z_log_var = args
-    epsilon = K.random_normal(shape=(batch_size, latent_dim), mean=0.)
-    return z_mean + K.exp(z_log_var / 2) * epsilon
-#=====================================
-def cluster_acc(Y_pred, Y):
-  from sklearn.utils.linear_assignment_ import linear_assignment
-  assert Y_pred.size == Y.size
-  D = max(Y_pred.max(), Y.max())+1
-  w = np.zeros((D,D), dtype=np.int64)
-  for i in range(Y_pred.size):
-    w[Y_pred[i], Y[i]] += 1
-  ind = linear_assignment(w.max() - w)
-  return sum([w[i,j] for i,j in ind])*1.0/Y_pred.size, w
-             
-#==================================================
-def load_data(dataset):
-    path = 'dataset/'+dataset+'/'
-    if dataset == 'mnist':
-        path = path + 'mnist.pkl.gz'
-        if path.endswith(".gz"):
-            f = gzip.open(path, 'rb')
-        else:
-            f = open(path, 'rb')
-    
-        if sys.version_info < (3,):
-            (x_train, y_train), (x_test, y_test) = cPickle.load(f)
-        else:
-            (x_train, y_train), (x_test, y_test) = cPickle.load(f, encoding="bytes")
-    
-        f.close()
-        x_train = x_train.astype('float32') / 255.
-        x_test = x_test.astype('float32') / 255.
-        x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
-        x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
-        X = np.concatenate((x_train,x_test))
-        Y = np.concatenate((y_train,y_test))
-        
-    if dataset == 'reuters10k':
-        data=scio.loadmat(path+'reuters10k.mat')
-        X = data['X']
-        Y = data['Y'].squeeze()
-        
-    if dataset == 'har':
-        data=scio.loadmat(path+'HAR.mat')
-        X=data['X']
-        X=X.astype('float32')
-        Y=data['Y']-1
-        X=X[:10200]
-        Y=Y[:10200]
-
-    return X,Y
-
-def config_init(dataset):
-    if dataset == 'mnist':
-        return 784,3000,10,0.002,0.002,10,0.9,0.9,1,'sigmoid'
-    if dataset == 'reuters10k':
-        return 2000,15,4,0.002,0.002,5,0.5,0.5,1,'linear'
-    if dataset == 'har':
-        return 561,120,6,0.002,0.00002,10,0.9,0.9,5,'linear'
         
 def gmmpara_init():
-    
     theta_init=np.ones(n_centroid)/n_centroid
     u_init=np.zeros((latent_dim,n_centroid))
     lambda_init=np.ones((latent_dim,n_centroid))
@@ -133,13 +71,15 @@ def vae_loss(x, x_decoded_mean):
     
     if datatype == 'sigmoid':
         loss=alpha*original_dim * objectives.binary_crossentropy(x, x_decoded_mean)\
-        +K.sum(0.5*gamma_t*(latent_dim*K.log(math.pi*2)+K.log(lambda_tensor3)+K.exp(z_log_var_t)/lambda_tensor3+K.square(z_mean_t-u_tensor3)/lambda_tensor3),axis=(1,2))\
+        +K.sum(0.5*gamma_t*(latent_dim*K.log(math.pi*2)+K.log(lambda_tensor3)\
+        +K.exp(z_log_var_t)/lambda_tensor3+K.square(z_mean_t-u_tensor3)/lambda_tensor3),axis=(1,2))\
         -0.5*K.sum(z_log_var+1,axis=-1)\
         -K.sum(K.log(K.repeat_elements(theta_p.dimshuffle('x',0),batch_size,0))*gamma,axis=-1)\
         +K.sum(K.log(gamma)*gamma,axis=-1)
     else:
         loss=alpha*original_dim * objectives.mean_squared_error(x, x_decoded_mean)\
-        +K.sum(0.5*gamma_t*(latent_dim*K.log(math.pi*2)+K.log(lambda_tensor3)+K.exp(z_log_var_t)/lambda_tensor3+K.square(z_mean_t-u_tensor3)/lambda_tensor3),axis=(1,2))\
+        +K.sum(0.5*gamma_t*(latent_dim*K.log(math.pi*2)+K.log(lambda_tensor3)\
+        +K.exp(z_log_var_t)/lambda_tensor3+K.square(z_mean_t-u_tensor3)/lambda_tensor3),axis=(1,2))\
         -0.5*K.sum(z_log_var+1,axis=-1)\
         -K.sum(K.log(K.repeat_elements(theta_p.dimshuffle('x',0),batch_size,0))*gamma,axis=-1)\
         +K.sum(K.log(gamma)*gamma,axis=-1)
@@ -147,39 +87,52 @@ def vae_loss(x, x_decoded_mean):
     return loss
 #================================
 
-def load_pretrain_weights(vade,dataset):
-    ae = model_from_json(open('pretrain_weights/ae_'+dataset+'.json').read())
-    ae.load_weights('pretrain_weights/ae_'+dataset+'_weights.h5')
-    vade.layers[1].set_weights(ae.layers[0].get_weights())
-    vade.layers[2].set_weights(ae.layers[1].get_weights())
-    vade.layers[3].set_weights(ae.layers[2].get_weights())
-    vade.layers[4].set_weights(ae.layers[3].get_weights())
-    vade.layers[-1].set_weights(ae.layers[-1].get_weights())
-    vade.layers[-2].set_weights(ae.layers[-2].get_weights())
-    vade.layers[-3].set_weights(ae.layers[-3].get_weights())
-    vade.layers[-4].set_weights(ae.layers[-4].get_weights())
+def load_pretrain_weights(vade: Model, dataset: str):
+    with open(os.path.join('pretrain_weights', 'ae_'+dataset+'.json')) as file:
+        ae = model_from_json(file.read())
+    ae.load_weights(os.path.join('pretrain_weights', 'ae_' + dataset + '_weights.h5'))
+
+    print('AE summary:')
+    ae.summary()
+    print('\nVaDE summary:')
+    vade.summary()
+    print()
+    has_input_layer = len(ae.layers[0].get_weights()) == 0
+    print('Has input layer? {}'.format(has_input_layer))
+
+    for i in range(4):
+        vade.layers[i + 1].set_weights(
+            ae.layers[i + 1 if has_input_layer else i].get_weights())
+    for i in range(-1, -5, -1): # -1, ..., -4
+        vade.layers[i].set_weights(ae.layers[i].get_weights())
+
+    print ('Pretrain weights loaded!')
+    return vade
+
+def set_cluster(dataset: str):
     sample = sample_output.predict(X,batch_size=batch_size)
     if dataset == 'mnist':
         g = mixture.GMM(n_components=n_centroid,covariance_type='diag')
         g.fit(sample)
         u_p.set_value(floatX(g.means_.T))
         lambda_p.set_value((floatX(g.covars_.T)))
-    if dataset == 'reuters10k':
+    elif dataset == 'reuters10k':
         k = KMeans(n_clusters=n_centroid)
         k.fit(sample)
         u_p.set_value(floatX(k.cluster_centers_.T))
-    if dataset == 'har':
+    elif dataset in ('har', 'cifar-10', 'fashion-mnist'):
         g = mixture.GMM(n_components=n_centroid,covariance_type='diag',random_state=3)
         g.fit(sample)
         u_p.set_value(floatX(g.means_.T))
         lambda_p.set_value((floatX(g.covars_.T)))
-    print ('pretrain weights loaded!')
-    return vade
+    else:
+        assert False
+
 #===================================
 def lr_decay():
     if dataset == 'mnist':
-        adam_nn.lr.set_value(floatX(max(adam_nn.lr.get_value()*decay_nn,0.0002)))
-        adam_gmm.lr.set_value(floatX(max(adam_gmm.lr.get_value()*decay_gmm,0.0002)))
+        adam_nn.lr.set_value(floatX(max(adam_nn.lr.get_value()*decay_nn, 0.0002)))
+        adam_gmm.lr.set_value(floatX(max(adam_gmm.lr.get_value()*decay_gmm, 0.0002)))
     else:
         adam_nn.lr.set_value(floatX(adam_nn.lr.get_value()*decay_nn))
         adam_gmm.lr.set_value(floatX(adam_gmm.lr.get_value()*decay_gmm))
@@ -187,8 +140,7 @@ def lr_decay():
     print ('lr_gmm:%f'%adam_gmm.lr.get_value())
     
 def epochBegin(epoch):
-
-    if epoch % decay_n == 0 and epoch!=0:
+    if epoch % decay_n == 0 and epoch:
         lr_decay()
     '''
     sample = sample_output.predict(X,batch_size=batch_size)
@@ -197,7 +149,7 @@ def epochBegin(epoch):
     p=g.predict(sample)
     acc_g=cluster_acc(p,Y)
     
-    if epoch <1 and ispretrain == False:
+    if epoch <1 and train == False:
         u_p.set_value(floatX(g.means_.T))
         print ('no pretrain,random init!')
     '''
@@ -205,62 +157,133 @@ def epochBegin(epoch):
     acc=cluster_acc(np.argmax(gamma,axis=1),Y)
     global accuracy
     accuracy+=[acc[0]]
-    if epoch>0 :
+    if epoch > 0:
         #print ('acc_gmm_on_z:%0.8f'%acc_g[0])
-        print ('acc_p_c_z:%0.8f'%acc[0])
+        print ('acc_p_c_z:%0.8f' % acc[0])
     if epoch==1 and dataset == 'har' and acc[0]<0.77:
         print ('=========== HAR dataset:bad init!Please run again! ============')
         sys.exit(0)
         
 class EpochBegin(Callback):
-    def on_epoch_begin(self, epoch, logs={}):
+    def on_epoch_begin(self, epoch, logs):
         epochBegin(epoch)
-#==============================================
 
-dataset = 'mnist'
-db = sys.argv[1]
-if db in ['mnist','reuters10k','har']:
-    dataset = db
-print ('training on: ' + dataset)
-ispretrain = True
+class PreTrainCallback(Callback):
+    def on_epoch_begin(self, epoch, logs):
+        Y_pred = ae.predict(X, batch_size=batch_size)
+        acc, _ = cluster_acc(np.argmax(Y_pred, axis=1), Y)
+        print('acc_p_c_z: {:.8f}'.format(acc))
+
+
+parser = argparse.ArgumentParser(description='VaDE training / pre-training')
+parser.add_argument('dataset', default='mnist',
+                    choices=['mnist', 'reuters10k', 'har', 
+                             'cifar-10', 'fashion-mnist'],
+                    help='specify dataset')
+parser.add_argument('-t', '--type', default='train',
+                    choices=['train', 'pre-train', 'raw-train'],
+                    help='training with or without pre-training' \
+                        + '/ pre-training (default train)')
+parser.add_argument('-e', '--epoch', type=int, help='number of epochs')
+args = parser.parse_args()
+dataset = args.dataset
+print ('{} on {}'.format(args.type.capitalize(), dataset))
+if args.epoch is not None:
+    print('Epochs: {}'.format(args.epoch))
+
 batch_size = 100
 latent_dim = 10
 intermediate_dim = [500,500,2000]
 theano.config.floatX='float32'
 accuracy=[]
 X,Y = load_data(dataset)
-original_dim,epoch,n_centroid,lr_nn,lr_gmm,decay_n,decay_nn,decay_gmm,alpha,datatype = config_init(dataset)
+print('X.shape: ' + str(X.shape))
+print('Y.shape: ' + str(Y.shape))
+print('Y.min()={}, Y.max()={}\n'.format(Y.min(), Y.max()))
+original_dim,epoch,n_centroid,lr_nn,lr_gmm, \
+    decay_n,decay_nn,decay_gmm,alpha,datatype = config_init(
+        dataset, args.type == 'pre-train')
+if args.epoch is not None:
+    epoch = args.epoch
 theta_p,u_p,lambda_p = gmmpara_init()
 #===================
 
-x = Input(batch_shape=(batch_size, original_dim))
-h = Dense(intermediate_dim[0], activation='relu')(x)
-h = Dense(intermediate_dim[1], activation='relu')(h)
-h = Dense(intermediate_dim[2], activation='relu')(h)
-z_mean = Dense(latent_dim)(h)
-z_log_var = Dense(latent_dim)(h)
-z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
-h_decoded = Dense(intermediate_dim[-1], activation='relu')(z)
-h_decoded = Dense(intermediate_dim[-2], activation='relu')(h_decoded)
-h_decoded = Dense(intermediate_dim[-3], activation='relu')(h_decoded)
-x_decoded_mean = Dense(original_dim, activation=datatype)(h_decoded)
+if args.type != 'pre-train':    # train or raw-train
+    assert args.type in ('train', 'raw-train')
+    x = Input(batch_shape=(batch_size, original_dim))
+    h = Dense(intermediate_dim[0], activation='relu')(x)
+    h = Dense(intermediate_dim[1], activation='relu')(h)
+    h = Dense(intermediate_dim[2], activation='relu')(h)
+    z_mean = Dense(latent_dim)(h)
+    z_log_var = Dense(latent_dim)(h)
+    z = Lambda(Sampling(batch_size, latent_dim), 
+               output_shape=(latent_dim,))([z_mean, z_log_var])
+    h_decoded = Dense(intermediate_dim[-1], activation='relu')(z)
+    h_decoded = Dense(intermediate_dim[-2], activation='relu')(h_decoded)
+    h_decoded = Dense(intermediate_dim[-3], activation='relu')(h_decoded)
+    x_decoded_mean = Dense(original_dim, activation=datatype)(h_decoded)
 
-#========================
-Gamma = Lambda(get_gamma, output_shape=(n_centroid,))(z)
-sample_output = Model(x, z_mean)
-gamma_output = Model(x,Gamma)
-#===========================================      
-vade = Model(x, x_decoded_mean)
-if ispretrain == True:
-    vade = load_pretrain_weights(vade,dataset)
-adam_nn= Adam(lr=lr_nn,epsilon=1e-4)
-adam_gmm= Adam(lr=lr_gmm,epsilon=1e-4)
-vade.compile(optimizer=adam_nn, loss=vae_loss,add_trainable_weights=[theta_p,u_p,lambda_p],add_optimizer=adam_gmm)
-epoch_begin=EpochBegin()
-#-------------------------------------------------------
+    #========================
+    Gamma = Lambda(get_gamma, output_shape=(n_centroid,))(z)
+    sample_output = Model(x, z_mean)
+    gamma_output = Model(x, Gamma)
+    #===========================================      
+    vade = Model(x, x_decoded_mean)
+    if args.type == 'train':
+        load_pretrain_weights(vade, dataset)
+    set_cluster(dataset)
+    adam_nn= Adam(lr=lr_nn,epsilon=1e-4)
+    adam_gmm= Adam(lr=lr_gmm,epsilon=1e-4)
+    vade.compile(optimizer=adam_nn, loss=vae_loss,
+                 add_trainable_weights=[theta_p,u_p,lambda_p],
+                 add_optimizer=adam_gmm)
+    epoch_begin=EpochBegin()
+    #-------------------------------------------------------
 
-vade.fit(X, X,
-        shuffle=True,
-        nb_epoch=epoch,
-        batch_size=batch_size,   
-        callbacks=[epoch_begin])
+    vade.fit(X, X,
+            shuffle=True,
+            nb_epoch=epoch,
+            batch_size=batch_size,   
+            callbacks=[epoch_begin])
+    
+    vade.save_weights(os.path.join('trained_model_weights', 
+                                   dataset + '_nn.h5'))
+    scio.savemat(
+        os.path.join('trained_model_weights', 
+                     dataset + '_weights_gmm.mat'),
+        {'u': u_p.get_value(), 'theta': theta_p.get_value(), 
+         'lambda': lambda_p.get_value()})
+
+else:   # pre-train
+    assert args.type == 'pre-train'
+    x = Input(batch_shape=(batch_size, original_dim))
+    h = Dense(intermediate_dim[0], activation='relu')(x)
+    h = Dense(intermediate_dim[1], activation='relu')(h)
+    h = Dense(intermediate_dim[2], activation='relu')(h)
+    z = Dense(latent_dim)(h)
+    h_decoded = Dense(intermediate_dim[-1], activation='relu')(z) 
+    h_decoded = Dense(intermediate_dim[-2], activation='relu')(h_decoded)
+    h_decoded = Dense(intermediate_dim[-3], activation='relu')(h_decoded)
+    x_decoded_mean = Dense(original_dim, activation=datatype)(h_decoded)
+
+    ae = Model(x, x_decoded_mean)
+    adam_nn = Adam(lr=lr_nn,epsilon=1e-4)
+    # TODO: what loss function to use?
+    ae.compile(optimizer=adam_nn, 
+               loss=objectives.binary_crossentropy \
+                   if datatype == 'sigmoid' \
+                   else objectives.mean_squared_error) 
+
+    ae.fit(X, X,
+            shuffle=True,
+            nb_epoch=epoch,
+            batch_size=batch_size,
+            callbacks=[PreTrainCallback()])  
+
+    json_str = ae.to_json()
+    with open(os.path.join('pretrain_weights', 
+                           'ae_' + dataset + '.json'), 'w') as file:
+        file.write(json_str)
+    ae.save_weights(os.path.join('pretrain_weights', 
+                                 'ae_' + dataset + '_weights.h5'))
+
