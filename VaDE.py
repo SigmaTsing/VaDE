@@ -51,8 +51,11 @@ def get_gamma(tempz):
     temp_lambda_tensor3=T.repeat(lambda_p.dimshuffle('x',0,1),batch_size,axis=0)
     temp_theta_tensor3=theta_p.dimshuffle('x','x',0)*T.ones((batch_size,latent_dim,n_centroid))
     
-    temp_p_c_z=K.exp(K.sum((K.log(temp_theta_tensor3)-0.5*K.log(2*math.pi*temp_lambda_tensor3)-\
-                       K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)),axis=1))+1e-10
+    # LYL: +1e-10 is not consistent with VaDE_test*.py, thus resulting in
+    # a HUGE difference between training accuracy and testing accuracy!!
+    # HOOOOOLY SH*T!!
+    temp_p_c_z=K.exp (K.sum((K.log(temp_theta_tensor3)-0.5*K.log(2*math.pi*temp_lambda_tensor3)-\
+                       K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)),axis=1))    #+1e-10
     return temp_p_c_z/K.sum(temp_p_c_z,axis=-1,keepdims=True)
 #=====================================================
 def vae_loss(x, x_decoded_mean):
@@ -63,8 +66,9 @@ def vae_loss(x, x_decoded_mean):
     lambda_tensor3=T.repeat(lambda_p.dimshuffle('x',0,1),batch_size,axis=0)
     theta_tensor3=theta_p.dimshuffle('x','x',0)*T.ones((batch_size,latent_dim,n_centroid))
     
+    # +1e-10??
     p_c_z=K.exp(K.sum((K.log(theta_tensor3)-0.5*K.log(2*math.pi*lambda_tensor3)-\
-                       K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1))+1e-10
+                       K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1)) #+1e-10 
 
     gamma=p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
     gamma_t=K.repeat(gamma,latent_dim)
@@ -154,12 +158,15 @@ def epochBegin(epoch):
         print ('no pretrain,random init!')
     '''
     gamma = gamma_output.predict(X,batch_size=batch_size)
-    acc=cluster_acc(np.argmax(gamma,axis=1),Y)
+    acc = cluster_acc(np.argmax(gamma,axis=1),Y)
     global accuracy
     accuracy+=[acc[0]]
-    if epoch > 0:
-        #print ('acc_gmm_on_z:%0.8f'%acc_g[0])
-        print ('acc_p_c_z:%0.8f' % acc[0])
+    pred = p_c_z_output.predict(X, batch_size=batch_size)
+    p_c_z_acc, _ = cluster_acc(np.argmax(pred, axis=1), Y)
+    #print ('acc_gmm_on_z:%0.8f'%acc_g[0])
+    print('acc_p_c_z(z): %0.8f' % acc[0]) 
+    print('acc_p_c_z(z_mean): {:.8f}'.format(p_c_z_acc))
+    
     if epoch==1 and dataset == 'har' and acc[0]<0.77:
         print ('=========== HAR dataset:bad init!Please run again! ============')
         sys.exit(0)
@@ -178,13 +185,17 @@ class PreTrainCallback(Callback):
         acc_g, _ = cluster_acc(p,Y)
         print('acc_g: {}'.format(acc_g))
 
-
+# With pre-train: 
+# 1) python3 VaDE.py dataset -m pre-train
+# 2) python3 VaDE.py dataset 
+# Without pre-train:
+# 1) python3 VaDE.py dataset -m raw-train
 parser = argparse.ArgumentParser(description='VaDE training / pre-training')
 parser.add_argument('dataset', default='mnist',
                     choices=['mnist', 'reuters10k', 'har', 
                              'cifar-10', 'fashion-mnist'],
                     help='specify dataset')
-parser.add_argument('-t', '--type', default='train',
+parser.add_argument('-m', '--mode', default='train',
                     choices=['train', 'pre-train', 'raw-train'],
                     help='training with or without pre-training' \
                         + '/ pre-training (default train)')
@@ -229,15 +240,17 @@ if args.type != 'pre-train':    # train or raw-train
 
     #========================
     Gamma = Lambda(get_gamma, output_shape=(n_centroid,))(z)
+    p_c_z = Lambda(get_gamma, output_shape=(n_centroid,))(z_mean)
     sample_output = Model(x, z_mean)
     gamma_output = Model(x, Gamma)
+    p_c_z_output = Model(x, p_c_z)
     #===========================================      
     vade = Model(x, x_decoded_mean)
     if args.type == 'train':
         load_pretrain_weights(vade, dataset)
     set_cluster(dataset)
-    adam_nn= Adam(lr=lr_nn,epsilon=1e-4)
-    adam_gmm= Adam(lr=lr_gmm,epsilon=1e-4)
+    adam_nn= Adam(lr=lr_nn, epsilon=1e-4)
+    adam_gmm= Adam(lr=lr_gmm, epsilon=1e-4)
     vade.compile(optimizer=adam_nn, loss=vae_loss,
                  add_trainable_weights=[theta_p,u_p,lambda_p],
                  add_optimizer=adam_gmm)
@@ -249,6 +262,11 @@ if args.type != 'pre-train':    # train or raw-train
             nb_epoch=epoch,
             batch_size=batch_size,   
             callbacks=[epoch_begin])
+
+    accuracy,ind = cluster_acc(
+        np.argmax(p_c_z_output.predict(X,batch_size=batch_size),axis=1),
+        Y)
+    print ('Clustering accuracy: %.2f%%'%(accuracy*100))
     
     vade.save_weights(os.path.join('trained_model_weights', 
                                    dataset + '_nn.h5'))
@@ -272,7 +290,7 @@ else:   # pre-train
 
     ae = Model(x, x_decoded_mean)
     sample_output = Model(x, z)    # Only for PreTrainCallback (optional)
-    adam_nn = Adam(lr=lr_nn,epsilon=1e-4)
+    adam_nn = Adam(lr=lr_nn, epsilon=1e-4)
     # TODO: what loss function to use?
     # (Currently, both cifar-10 and fashion-mnist use mean_squared_error)
     ae.compile(optimizer=adam_nn, 

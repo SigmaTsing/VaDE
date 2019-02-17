@@ -33,7 +33,8 @@ def cluster_acc(Y_pred, Y):
     for i in range(Y_pred.size):
         w[Y_pred[i], Y[i]] += 1
     ind = linear_assignment(w.max() - w)
-    return sum([w[i,j] for i,j in ind])*1.0/Y_pred.size, w
+    # Should be ind, though not used
+    return sum([w[i,j] for i,j in ind])*1.0/Y_pred.size, ind    
 
 def _load_fashion_mnist():
     """Loads the Fashion-MNIST dataset.
@@ -124,19 +125,19 @@ def config_init(dataset: str, pre_train=False):
     '''original_dim, epoch, n_centroid, lr_nn, lr_gmm,
     decay_n, decay_nn, decay_gmm, alpha, datatype(activation of x_decoded_mean)'''
     if dataset == 'mnist':
-        return 784,3000,10,0.002,0.002,\
-            10,0.9,0.9,1,'sigmoid' 
+        return 784, 3000 if not pre_train else 10, 10, 0.002, 0.002,\
+            10, 0.9, 0.9, 1, 'sigmoid' 
     elif dataset == 'reuters10k':
-        return 2000,15,4,0.002,0.002,\
-            5,0.5,0.5,1,'linear'
+        return 2000, 15 if not pre_train else 5, 4, 0.002, 0.002,\
+            5, 0.5, 0.5, 1, 'linear'
     elif dataset == 'har':
-        return 561,120,6,0.002,0.00002,\
-            10,0.9,0.9,5,'linear'
+        return 561, 120 if not pre_train else 10, 6, 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'
     elif dataset == 'cifar-10':
-        return 2048,120 if not pre_train else 20,10,0.002,0.00002,\
-            10,0.9,0.9,5,'linear'   # TODO: epoch
+        return 2048, 120 if not pre_train else 10, 10, 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'   # TODO: proper epoch
     elif dataset == 'fashion-mnist':
-        return 784,120 if not pre_train else 20,10,0.002,0.00002,\
-            10,0.9,0.9,5,'linear'    # TODO: epoch
+        return 784, 120 if not pre_train else 10, 10, 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'   # TODO: proper epoch
     else:
         assert False

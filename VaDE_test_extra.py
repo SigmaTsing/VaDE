@@ -79,8 +79,8 @@ def main(dataset: str):
     vade.load_weights(os.path.join('trained_model_weights', dataset + '_nn.h5'))
 
     y_pred = np.argmax(p_c_z_output.predict(X, batch_size=batch_size), axis=1)
-    print(y_pred[:10])
-    print(Y[:10])
+    print('Y_pred: ' + str(y_pred[:10]))
+    print('Y: ' +  str(Y[:10]))
     accuracy, _ = cluster_acc(y_pred, Y)
     print('{} dataset VaDE - clustering accuracy: {:.2f}'
           .format(dataset, accuracy*100))
