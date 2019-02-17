@@ -7,6 +7,9 @@ import time
 import numpy as np
 import multiprocessing
 import threading
+
+import six
+
 try:
     import queue
 except ImportError:
