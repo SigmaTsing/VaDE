@@ -202,7 +202,7 @@ parser.add_argument('-m', '--mode', default='train',
 parser.add_argument('-e', '--epoch', type=int, help='number of epochs')
 args = parser.parse_args()
 dataset = args.dataset
-print ('{} on {}'.format(args.type.capitalize(), dataset))
+print ('{} on {}'.format(args.mode.capitalize(), dataset))
 if args.epoch is not None:
     print('Epochs: {}'.format(args.epoch))
 
@@ -217,14 +217,14 @@ print('Y.shape: ' + str(Y.shape))
 print('Y.min()={}, Y.max()={}\n'.format(Y.min(), Y.max()))
 original_dim,epoch,n_centroid,lr_nn,lr_gmm, \
     decay_n,decay_nn,decay_gmm,alpha,datatype = config_init(
-        dataset, args.type == 'pre-train')
+        dataset, args.mode == 'pre-train')
 if args.epoch is not None:
     epoch = args.epoch
 theta_p,u_p,lambda_p = gmmpara_init()
 #===================
 
-if args.type != 'pre-train':    # train or raw-train
-    assert args.type in ('train', 'raw-train')
+if args.mode != 'pre-train':    # train or raw-train
+    assert args.mode in ('train', 'raw-train')
     x = Input(batch_shape=(batch_size, original_dim))
     h = Dense(intermediate_dim[0], activation='relu')(x)
     h = Dense(intermediate_dim[1], activation='relu')(h)
@@ -246,7 +246,7 @@ if args.type != 'pre-train':    # train or raw-train
     p_c_z_output = Model(x, p_c_z)
     #===========================================      
     vade = Model(x, x_decoded_mean)
-    if args.type == 'train':
+    if args.mode == 'train':
         load_pretrain_weights(vade, dataset)
     set_cluster(dataset)
     adam_nn= Adam(lr=lr_nn, epsilon=1e-4)
@@ -277,7 +277,7 @@ if args.type != 'pre-train':    # train or raw-train
          'lambda': lambda_p.get_value()})
 
 else:   # pre-train
-    assert args.type == 'pre-train'
+    assert args.mode == 'pre-train'
     x = Input(batch_shape=(batch_size, original_dim))
     h = Dense(intermediate_dim[0], activation='relu')(x)
     h = Dense(intermediate_dim[1], activation='relu')(h)
