@@ -11,6 +11,9 @@ Reuters_all: 79.38% +
 @code author: Zhuxi Jiang
 '''
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['KERAS_BACKEND'] = 'theano'
 import argparse
 import numpy as np
 from keras.callbacks import Callback
@@ -29,7 +32,6 @@ import math
 from sklearn import mixture
 from sklearn.cluster import KMeans
 from keras.models import model_from_json
-import os
 from utils import *
 import warnings
 warnings.filterwarnings("ignore")
@@ -202,7 +204,7 @@ parser.add_argument('-m', '--mode', default='train',
 parser.add_argument('-e', '--epoch', type=int, help='number of epochs')
 args = parser.parse_args()
 dataset = args.dataset
-print ('{} on {}'.format(args.type.capitalize(), dataset))
+print ('{} on {}'.format(args.mode.capitalize(), dataset))
 if args.epoch is not None:
     print('Epochs: {}'.format(args.epoch))
 
