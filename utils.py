@@ -127,7 +127,7 @@ def load_data(dataset: str):
         train_data = scio.loadmat(os.path.join(path, 'train_gist.mat'))
         test_data = scio.loadmat(os.path.join(path, 'test_gist.mat'))
         X = np.concatenate((train_data['X'], test_data['X']))
-        Y = np.concatenate((train_data['Y'], test_data['Y']))
+        Y = np.concatenate((train_data['Y'], test_data['Y'])).squeeze()
         np.apply_along_axis(lambda row: (row - row.mean()) / (row.std() + 1e-8),
                             1, X)   # normalize
         Y = Y - Y.min()             # s.t. Y.min() = 0

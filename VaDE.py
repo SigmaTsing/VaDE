@@ -12,7 +12,7 @@ Reuters_all: 79.38% +
 '''
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 os.environ['KERAS_BACKEND'] = 'theano'
 import argparse
 import numpy as np
@@ -73,9 +73,8 @@ def vae_loss(x, x_decoded_mean):
                        K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1)) #+1e-10 
     # LYL: dunno why but with 1e-10 added, MNIST works well, 
     # while others typically deteriorate.
-    if dataset == 'mnist':
-        p_c_z += 1e-10
-
+    p_c_z += {'mnist': 1e-10, 'svhn': 1e-10}.get(dataset, 0)
+    
     gamma=p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
     gamma_t=K.repeat(gamma,latent_dim)
     
@@ -223,6 +222,8 @@ if args.epoch is not None:
 theta_p,u_p,lambda_p = gmmpara_init()
 #===================
 
+X = X[:len(X) - len(X) % batch_size]
+Y = Y[:len(X)]
 if args.mode != 'pre-train':    # train or raw-train
     assert args.mode in ('train', 'raw-train')
     x = Input(batch_shape=(batch_size, original_dim))
