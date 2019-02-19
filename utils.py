@@ -65,7 +65,7 @@ def _load_fashion_mnist():
     return (x_train, y_train), (x_test, y_test)
              
 def load_data(dataset: str):    
-    path = path = os.path.join('dataset', dataset)
+    path = os.path.join('dataset', dataset)
     if dataset == 'mnist':
         path = os.path.join(path, 'mnist.pkl.gz')
         if path.endswith(".gz"):
@@ -103,7 +103,7 @@ def load_data(dataset: str):
         data=scio.loadmat(os.path.join(path, 'cifar10_feature.mat'))
         X = data['x']           # (60k, 2048)
         Y = data['y'].squeeze() # (60k,)
-        np.apply_along_axis(lambda row: (row - row.mean()) / (row.std() + 1e-5),
+        np.apply_along_axis(lambda row: (row - row.mean()) / (row.std() + 1e-8),
                             1, X)    # normalize
 
     elif dataset == 'fashion-mnist':
@@ -116,10 +116,27 @@ def load_data(dataset: str):
         X = np.concatenate((x_train,x_test))
         Y = np.concatenate((y_train,y_test))
 
+    elif dataset == 'cifar-100':
+        data = scio.loadmat(os.path.join(path, 'cifar100_feature.mat'))
+        X = data['x']           # (60k, 2048)
+        Y = data['y'].squeeze() # (60k,)
+        np.apply_along_axis(lambda row: (row - row.mean()) / (row.std() + 1e-8),
+                            1, X)   # normalize
+
+    elif dataset == 'svhn':
+        train_data = scio.loadmat(os.path.join(path, 'train_gist.mat'))
+        test_data = scio.loadmat(os.path.join(path, 'test_gist.mat'))
+        X = np.concatenate((train_data['X'], test_data['X']))
+        Y = np.concatenate((train_data['Y'], test_data['Y']))
+        np.apply_along_axis(lambda row: (row - row.mean()) / (row.std() + 1e-8),
+                            1, X)   # normalize
+        Y = Y - Y.min()             # s.t. Y.min() = 0
+        assert len(X) == len(Y) == 73257 + 26032
+
     else:
         assert False
 
-    return X,Y
+    return X, Y 
 
 def config_init(dataset: str, pre_train=False):
     '''original_dim, epoch, n_centroid, lr_nn, lr_gmm,
@@ -133,11 +150,14 @@ def config_init(dataset: str, pre_train=False):
     elif dataset == 'har':
         return 561, 120 if not pre_train else 10, 6, 0.002, 0.00002,\
             10, 0.9, 0.9, 5, 'linear'
-    elif dataset == 'cifar-10':
-        return 2048, 120 if not pre_train else 10, 10, 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'   # TODO: proper epoch
+    elif dataset in ('cifar-10', 'cifar-100'):
+        return 2048, 120 if not pre_train else 5, int(dataset.split('-')[-1]), 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'   
     elif dataset == 'fashion-mnist':
-        return 784, 120 if not pre_train else 10, 10, 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'   # TODO: proper epoch
+        return 784, 120 if not pre_train else 5, 10, 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'   
+    elif dataset == 'svhn':
+        return 960, 120 if not pre_train else 5, 10, 0.002, 0.00002,\
+            10, 0.9, 0.9, 5, 'linear'   
     else:
         assert False

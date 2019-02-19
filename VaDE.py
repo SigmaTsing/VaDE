@@ -71,6 +71,10 @@ def vae_loss(x, x_decoded_mean):
     # +1e-10??
     p_c_z=K.exp(K.sum((K.log(theta_tensor3)-0.5*K.log(2*math.pi*lambda_tensor3)-\
                        K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1)) #+1e-10 
+    # LYL: dunno why but with 1e-10 added, MNIST works well, 
+    # while others typically deteriorate.
+    if dataset == 'mnist':
+        p_c_z += 1e-10
 
     gamma=p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
     gamma_t=K.repeat(gamma,latent_dim)
@@ -116,23 +120,17 @@ def load_pretrain_weights(vade: Model, dataset: str):
     return vade
 
 def set_cluster(dataset: str):
-    sample = sample_output.predict(X,batch_size=batch_size)
-    if dataset == 'mnist':
-        g = mixture.GMM(n_components=n_centroid,covariance_type='diag')
-        g.fit(sample)
-        u_p.set_value(floatX(g.means_.T))
-        lambda_p.set_value((floatX(g.covars_.T)))
-    elif dataset == 'reuters10k':
+    sample = sample_output.predict(X, batch_size=batch_size)
+    if dataset == 'reuters10k':
         k = KMeans(n_clusters=n_centroid)
         k.fit(sample)
         u_p.set_value(floatX(k.cluster_centers_.T))
-    elif dataset in ('har', 'cifar-10', 'fashion-mnist'):
-        g = mixture.GMM(n_components=n_centroid,covariance_type='diag',random_state=3)
+    else:
+        g = mixture.GMM(n_components=n_centroid, covariance_type='diag',
+                        random_state=np.random.RandomState())
         g.fit(sample)
         u_p.set_value(floatX(g.means_.T))
         lambda_p.set_value((floatX(g.covars_.T)))
-    else:
-        assert False
 
 #===================================
 def lr_decay():
@@ -195,7 +193,7 @@ class PreTrainCallback(Callback):
 parser = argparse.ArgumentParser(description='VaDE training / pre-training')
 parser.add_argument('dataset', default='mnist',
                     choices=['mnist', 'reuters10k', 'har', 
-                             'cifar-10', 'fashion-mnist'],
+                             'cifar-10', 'fashion-mnist', 'cifar-100', 'svhn'],
                     help='specify dataset')
 parser.add_argument('-m', '--mode', default='train',
                     choices=['train', 'pre-train', 'raw-train'],
@@ -294,7 +292,7 @@ else:   # pre-train
     sample_output = Model(x, z)    # Only for PreTrainCallback (optional)
     adam_nn = Adam(lr=lr_nn, epsilon=1e-4)
     # TODO: what loss function to use?
-    # (Currently, both cifar-10 and fashion-mnist use mean_squared_error)
+    # (Currently, all additional datasets use mean_squared_error)
     ae.compile(optimizer=adam_nn, 
                loss=objectives.binary_crossentropy \
                    if datatype == 'sigmoid' \
