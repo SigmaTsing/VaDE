@@ -67,7 +67,7 @@ Replace keras/engine/training.py with the training.py in this folder.
 You can try this script:
 
 ```shell
-conda create --name vade python=3.5.6
+conda create --name vade python=3.5.6 --yes
 source activate vade
 while read requirement; do conda install --yes $requirement || pip install $requirement; done < requirements.txt
 cp training.py $CONDA_PREFIX/lib/python3.5/site-packages/keras/engine
