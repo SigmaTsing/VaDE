@@ -57,7 +57,7 @@ def get_gamma(tempz):
     # a HUGE difference between training accuracy and testing accuracy!!
     # HOOOOOLY SH*T!!
     temp_p_c_z=K.exp (K.sum((K.log(temp_theta_tensor3)-0.5*K.log(2*math.pi*temp_lambda_tensor3)-\
-                       K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)),axis=1))    #+1e-10
+                       K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)),axis=1)) + 1e-10
     return temp_p_c_z/K.sum(temp_p_c_z,axis=-1,keepdims=True)
 #=====================================================
 def vae_loss(x, x_decoded_mean):
@@ -73,7 +73,7 @@ def vae_loss(x, x_decoded_mean):
                        K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1)) #+1e-10 
     # LYL: dunno why but with 1e-10 added, MNIST works well, 
     # while others typically deteriorate.
-    p_c_z += {'mnist': 1e-10, 'svhn': 1e-10}.get(dataset, 0)
+    p_c_z += {'mnist': 1e-10, 'svhn': 1e-10, 'cifar-100': 1e-10}.get(dataset, 0)
     
     gamma=p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
     gamma_t=K.repeat(gamma,latent_dim)
@@ -196,7 +196,7 @@ parser.add_argument('dataset', default='mnist',
                     help='specify dataset')
 parser.add_argument('-m', '--mode', default='train',
                     choices=['train', 'pre-train', 'raw-train'],
-                    help='training with or without pre-training' \
+                    help='training with or without pre-training ' \
                         + '/ pre-training (default train)')
 parser.add_argument('-e', '--epoch', type=int, help='number of epochs')
 args = parser.parse_args()

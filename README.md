@@ -52,3 +52,8 @@ Face generation by VaDE on CelebA
 
 * Vector arithmetic in latent space：right + left = front
 ![image](https://github.com/slim1017/VaDE/blob/master/arithmetic.jpg)
+
+Experiment Notes (LYL)
+Python 3.5.6, Anaconda
+Keras 1.2.0 <pip> (may need to import six in training.py; see training.py for details)
+Scikit-learn 0.17.1
