@@ -99,7 +99,7 @@ python VaDE.py dataset
 
 Personal log(XSQ)
 =================
-1e-10 seems to help avoid the model from cracking by p_c_z downflowing, yet the reason it works remains uncertified.</b>
+1e-10 seems to help avoid the model from cracking with p_c_z downflowing, yet the reason it works remains uncertified.</b>
 
 Duplicated experiment on all datasets worked well, yet results on fashion and stl were unstable.</b>
 
