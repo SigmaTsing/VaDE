@@ -97,3 +97,28 @@ python VaDE.py dataset
 2. The authors may have fine-tuned the weights they provided. In contrast, running the code with steps 1-2 above yields much worse results on MNIST.
 3. There are two peculiar 1e-10 in `VaDE.py`. One appears in `get_gamma` function, which is not consistent with `VaDE_test_*.py`. If you want to maintain those testing scripts, make sure to ensure both or neither adds 1e-10 (otherwise testing acc will likely be significantly worse than training acc). The other appears in `vae_loss` function, but adding 1e-10 may deteriorate results on some datasets. The current strategy (adding 1e-10 only to MNIST, SVHN and CIFAR-100) is probably not optimal; you can modify line 76 to explore other possibilities. 
 
+Personal log(XSQ)
+=================
+1e-10 seems to help avoid the model from cracking by p_c_z downflowing, yet the reason it works remains uncertified.</b>
+
+Duplicated experiment on all datasets worked well, yet results on fashion and stl were unstable.</b>
+
+Latest Best result(Accuracy):
+<table>
+  <tr align="center">
+    <td><b>mnist</b></td>
+    <td><b>fashion-mnist</b></td>
+    <td><b>stl-10</b></td>
+    <td><b>cifar-10</b></td>
+    <td><b>cifar-100</b></td>
+    <td><b>svhn</b></td>
+  </tr>
+  <tr align="center">
+    <td>94.78</td>
+    <td>49.41</td>
+    <td>88.05</td>
+    <td>50.65</td>
+    <td>18.97</td>
+    <td>19.12</td>
+  </tr>
+</table>
