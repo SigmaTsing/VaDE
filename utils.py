@@ -132,6 +132,12 @@ def load_data(dataset: str):
                             1, X)   # normalize
         Y = Y - Y.min()             # s.t. Y.min() = 0
         assert len(X) == len(Y) == 73257 + 26032
+    elif dataset=='stl10':
+        data=scio.loadmat('dataset/stl10_feature.mat')
+        X=data['x']
+        Y=data['y'].reshape(-1)
+        Y=Y-Y.min()
+        assert len(X)==len(Y)==13000
 
     else:
         assert False
@@ -159,5 +165,8 @@ def config_init(dataset: str, pre_train=False):
     elif dataset == 'svhn':
         return 960, 120 if not pre_train else 5, 10, 0.002, 0.00002,\
             10, 0.9, 0.9, 5, 'linear'   
+    elif dataset=='stl10':
+        return 2048,300 if not pre_train else 5,10,0.002,0.002, \
+                10, 0.9, 0.9,1, 'sigmoid'
     else:
         assert False
