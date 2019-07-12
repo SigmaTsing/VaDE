@@ -73,8 +73,9 @@ def vae_loss(x, x_decoded_mean):
                        K.square(Z-u_tensor3)/(2*lambda_tensor3)),axis=1)) #+1e-10 
     # LYL: dunno why but with 1e-10 added, MNIST works well, 
     # while others typically deteriorate.
-    p_c_z += {'mnist': 1e-10, 'svhn': 1e-10, 'cifar-100': 1e-10}.get(dataset, 0)
-    
+    #p_c_z += {'mnist': 1e-10, 'svhn': 1e-10, 'cifar-100': 1e-10}.get(dataset, 0)
+    p_c_z+=1e-10
+    # XSQ: dunno why, and on all models this works
     gamma=p_c_z/K.sum(p_c_z,axis=-1,keepdims=True)
     gamma_t=K.repeat(gamma,latent_dim)
     
