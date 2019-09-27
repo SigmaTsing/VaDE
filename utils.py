@@ -148,25 +148,27 @@ def config_init(dataset: str, pre_train=False):
     '''original_dim, epoch, n_centroid, lr_nn, lr_gmm,
     decay_n, decay_nn, decay_gmm, alpha, datatype(activation of x_decoded_mean)'''
     if dataset == 'mnist':
-        return 784, 3000 if not pre_train else 10, 10, 0.002, 0.002,\
-            10, 0.9, 0.9, 1, 'sigmoid' 
+        return 784, 3000 if not pre_train else 10, 10, 0.002, 0.002, \
+               10, 0.9, 0.9, 1, 'sigmoid'
     elif dataset == 'reuters10k':
-        return 2000, 15 if not pre_train else 5, 4, 0.002, 0.002,\
-            5, 0.5, 0.5, 1, 'linear'
+        return 2000, 15 if not pre_train else 5, 4, 0.002, 0.002, \
+               5, 0.5, 0.5, 1, 'linear'
     elif dataset == 'har':
-        return 561, 120 if not pre_train else 10, 6, 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'
+        return 561, 120 if not pre_train else 10, 6, 0.002, 0.00002, \
+               10, 0.9, 0.9, 5, 'linear'
     elif dataset in ('cifar-10', 'cifar-100'):
-        return 2048, 120 if not pre_train else 5, int(dataset.split('-')[-1]), 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'   
+        return 2048, 120 if not pre_train else 5, int(dataset.split('-')[-1]), 0.002, 0.002, \
+               10, 0.9, 0.9, 5, 'linear'
     elif dataset == 'fashion-mnist':
-        return 784, 120 if not pre_train else 5, 10, 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'   
+        return 784, 120 if not pre_train else 5, 10, 0.002, 0.00002, \
+               10, 0.9, 0.9, 5, 'linear'
     elif dataset == 'svhn':
-        return 960, 120 if not pre_train else 5, 10, 0.002, 0.00002,\
-            10, 0.9, 0.9, 5, 'linear'   
+        #return 960, 120 if not pre_train else 5, 10, 0.002, 0.00002, \
+        #       10, 0.9, 0.9, 5, 'linear'
+        return 960 ,120  if not pre_train else 5, 10, 0.002, 0.002, \
+               10, 0.9, 0.9, 1, 'sigmoid'
     elif dataset=='stl10':
         return 2048,300 if not pre_train else 5,10,0.002,0.002, \
-                10, 0.9, 0.9,1, 'sigmoid'
+                10, 0.9, 0.9,5, 'linear'
     else:
         assert False
